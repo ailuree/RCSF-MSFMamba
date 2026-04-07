@@ -1,0 +1,106 @@
+# A-MyCode 常用指令
+
+## 1. 进入 WSL 工作目录
+cd /home/project/5-MyProject/A-MyCode
+
+
+## 2. Houston2018 常用训练/验证
+
+# 开发期推荐：默认小测试集验证
+python train.py --dataset Houston2018 --batchsize 8 --epoch 1 --num_work 4 --eval_split small
+
+# Houston2018 完整测试集验证
+python train.py --dataset Houston2018 --batchsize 8 --epoch 1 --num_work 4 --eval_split full
+
+# Houston2018 快速 smoke test：少量训练 batch，跳过测试
+python train.py --dataset Houston2018 --batchsize 4 --epoch 1 --num_work 2 --skip_test 1 --max_train_batches 20 --print_freq 5
+
+# Houston2018 快速 smoke test：少量训练 + 少量测试
+python train.py --dataset Houston2018 --batchsize 4 --epoch 1 --num_work 2 --max_train_batches 20 --max_test_batches 10 --print_freq 5
+
+
+## 3. Houston2013 常用训练/验证
+
+# Houston2013 完整跑通 1 个 epoch
+python train.py --dataset Houston2013 --batchsize 8 --epoch 1 --num_work 2
+
+# Houston2013 快速 smoke test
+python train.py --dataset Houston2013 --batchsize 4 --epoch 1 --num_work 2 --skip_test 1 --max_train_batches 20 --print_freq 5
+
+
+## 4. 其他数据集示例
+
+# Berlin
+python train.py --dataset Berlin --batchsize 8 --epoch 1 --num_work 2
+
+# Augsburg
+python train.py --dataset Augsburg --batchsize 8 --epoch 1 --num_work 2
+
+
+## 5. 常用调参方式
+
+# 提高 batchsize（先观察显存）
+python train.py --dataset Houston2018 --batchsize 12 --epoch 1 --num_work 4 --eval_split small
+
+# 提高 dataloader worker
+python train.py --dataset Houston2018 --batchsize 8 --epoch 1 --num_work 6 --eval_split small
+
+# 调整打印频率
+python train.py --dataset Houston2018 --batchsize 8 --epoch 1 --num_work 4 --eval_split small --print_freq 50
+
+
+## 6. 从 Windows 挂载目录复制整个 A-MyCode 到 WSL 工作目录
+
+# 先确保目标目录存在
+mkdir -p /home/project/5-MyProject
+
+# 整体复制覆盖 A-MyCode（包含 data）
+cp -a /mnt/g/temp/A-BiYe/BiShe3/5-MyProject/A-MyCode/. /home/project/5-MyProject/A-MyCode/
+
+
+## 7. 只同步代码，排除 data 文件夹
+
+# 推荐方式：使用 rsync，同步更稳，也更适合后续反复覆盖
+rsync -av --delete --exclude 'data/' /mnt/g/temp/A-BiYe/BiShe3/5-MyProject/A-MyCode/ /home/project/5-MyProject/A-MyCode/
+
+# 如果系统里没有 rsync，可先安装
+sudo apt update
+sudo apt install -y rsync
+
+
+## 8. 只同步几个最常改的代码目录/文件
+
+cp -a /mnt/g/temp/A-BiYe/BiShe3/5-MyProject/A-MyCode/train.py /home/project/5-MyProject/A-MyCode/
+cp -a /mnt/g/temp/A-BiYe/BiShe3/5-MyProject/A-MyCode/utility.py /home/project/5-MyProject/A-MyCode/
+cp -a /mnt/g/temp/A-BiYe/BiShe3/5-MyProject/A-MyCode/setting /home/project/5-MyProject/A-MyCode/
+cp -a /mnt/g/temp/A-BiYe/BiShe3/5-MyProject/A-MyCode/model /home/project/5-MyProject/A-MyCode/
+cp -a /mnt/g/temp/A-BiYe/BiShe3/5-MyProject/A-MyCode/modules /home/project/5-MyProject/A-MyCode/
+
+
+## 9. 常用检查指令
+
+# 查看当前环境中的 torch / cuda
+python -c "import torch; print(torch.__version__); print(torch.version.cuda); print(torch.cuda.is_available())"
+
+# 查看当前 transformers 版本
+python -c "import transformers; print(transformers.__version__)"
+
+# 查看 mamba_ssm / causal_conv1d 是否可导入
+python -c "import mamba_ssm, causal_conv1d; print('mamba_ssm ok'); print('causal_conv1d ok')"
+
+# 查看 selective_scan_cuda 是否可导入
+python -c "import selective_scan_cuda; print('selective_scan_cuda ok')"
+
+# 观察 GPU 使用情况
+nvidia-smi
+
+# 实时观察 GPU 使用情况
+watch -n 1 nvidia-smi
+
+
+## 10. 备注
+
+# 开发阶段建议：
+# 1) Houston2018 默认用 --eval_split small
+# 2) 先用 Houston2013 或 Houston2018 smoke test 验证环境
+# 3) 正式大实验再切到 --eval_split full
