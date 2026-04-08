@@ -4,77 +4,118 @@
 cd /home/project/5-MyProject/A-MyCode
 
 
-## 2. Houston2018 常用训练/验证
+## 2. 基线正式实验
 
-# 开发期推荐：默认小测试集验证
-python train.py --dataset Houston2018 --batchsize 8 --epoch 1 --num_work 4 --eval_split small
+# Houston2013 基线正式训练
+python train.py --dataset Houston2013 --batchsize 8 --epoch 40 --num_work 4 --run_name baseline_h2013
 
-# Houston2018 完整测试集验证
-python train.py --dataset Houston2018 --batchsize 8 --epoch 1 --num_work 4 --eval_split full
+# Houston2013 基线独立评估
+python eval.py --dataset Houston2013 --run_name baseline_h2013
 
-# Houston2018 快速 smoke test：少量训练 batch，跳过测试
-python train.py --dataset Houston2018 --batchsize 4 --epoch 1 --num_work 2 --skip_test 1 --max_train_batches 20 --print_freq 5
+# Houston2013 生成预测图 / GT 图
+python visualize.py --dataset Houston2013 --run_name baseline_h2013 --split all
+
+# Houston2013 生成预测图 / GT 图 / HSI RGB / LiDAR / 四联图
+python visualize.py --dataset Houston2013 --run_name baseline_h2013 --split all --save_input_views 1
+
+# Houston2018 基线正式训练（开发期建议 small）
+python train.py --dataset Houston2018 --batchsize 8 --epoch 40 --num_work 4 --eval_split small --run_name baseline_h2018
+
+# Houston2018 基线独立评估
+python eval.py --dataset Houston2018 --run_name baseline_h2018 --eval_split small
+
+# Houston2018 生成预测图 / GT 图 / 四联图
+python visualize.py --dataset Houston2018 --run_name baseline_h2018 --split all --eval_split small --save_input_views 1
+
+
+## 3. 开发期 smoke test
+
+# Houston2013 快速 smoke test：少量训练 batch，跳过测试
+python train.py --dataset Houston2013 --batchsize 4 --epoch 1 --num_work 2 --skip_test 1 --max_train_batches 20 --print_freq 5 --run_name smoke_h2013
+
+# Houston2013 快速 smoke test：少量训练 + 少量测试
+python train.py --dataset Houston2013 --batchsize 4 --epoch 1 --num_work 2 --max_train_batches 20 --max_test_batches 10 --print_freq 5 --run_name smoke_h2013_eval
 
 # Houston2018 快速 smoke test：少量训练 + 少量测试
-python train.py --dataset Houston2018 --batchsize 4 --epoch 1 --num_work 2 --max_train_batches 20 --max_test_batches 10 --print_freq 5
+python train.py --dataset Houston2018 --batchsize 4 --epoch 1 --num_work 2 --eval_split small --max_train_batches 20 --max_test_batches 10 --print_freq 5 --run_name smoke_h2018
 
 
-## 3. Houston2013 常用训练/验证
-
-# Houston2013 完整跑通 1 个 epoch
-python train.py --dataset Houston2013 --batchsize 8 --epoch 1 --num_work 2
-
-# Houston2013 快速 smoke test
-python train.py --dataset Houston2013 --batchsize 4 --epoch 1 --num_work 2 --skip_test 1 --max_train_batches 20 --print_freq 5
-
-
-## 4. 其他数据集示例
-
-# Berlin
-python train.py --dataset Berlin --batchsize 8 --epoch 1 --num_work 2
-
-# Augsburg
-python train.py --dataset Augsburg --batchsize 8 --epoch 1 --num_work 2
-
-
-## 5. 常用调参方式
+## 4. 常用调参方式
 
 # 提高 batchsize（先观察显存）
-python train.py --dataset Houston2018 --batchsize 12 --epoch 1 --num_work 4 --eval_split small
+python train.py --dataset Houston2013 --batchsize 12 --epoch 40 --num_work 4 --run_name baseline_h2013_bs12
 
 # 提高 dataloader worker
-python train.py --dataset Houston2018 --batchsize 8 --epoch 1 --num_work 6 --eval_split small
+python train.py --dataset Houston2013 --batchsize 8 --epoch 40 --num_work 6 --run_name baseline_h2013_w6
 
 # 调整打印频率
-python train.py --dataset Houston2018 --batchsize 8 --epoch 1 --num_work 4 --eval_split small --print_freq 50
+python train.py --dataset Houston2013 --batchsize 8 --epoch 40 --num_work 4 --print_freq 50 --run_name baseline_h2013_pf50
 
 
-## 6. 从 Windows 挂载目录复制整个 A-MyCode 到 WSL 工作目录
+## 5. 只做独立评估 / 可视化
+
+# 指定某个 checkpoint 做评估
+python eval.py --dataset Houston2013 --checkpoint ./checkpoints/Houston2013/baseline_h2013/weights/best.pth
+
+# 指定某个 checkpoint 生成图
+python visualize.py --dataset Houston2013 --checkpoint ./checkpoints/Houston2013/baseline_h2013/weights/best.pth --split all --save_input_views 1
+
+
+## 6. 从 Windows 同步到 WSL
 
 # 先确保目标目录存在
-mkdir -p /home/project/5-MyProject
+mkdir -p /home/project/5-MyProject/A-MyCode
 
-# 整体复制覆盖 A-MyCode（包含 data）
-cp -a /mnt/g/temp/A-BiYe/BiShe3/5-MyProject/A-MyCode/. /home/project/5-MyProject/A-MyCode/
-
-
-## 7. 只同步代码，排除 data 文件夹
-
-# 推荐方式：使用 rsync，同步更稳，也更适合后续反复覆盖
-rsync -av --delete --exclude 'data/' /mnt/g/temp/A-BiYe/BiShe3/5-MyProject/A-MyCode/ /home/project/5-MyProject/A-MyCode/
+# 推荐：只同步代码，排除 data / .git / .gitignore / checkpoints
+rsync -av --delete \
+  --exclude 'data/' \
+  --exclude '.git/' \
+  --exclude '.gitignore' \
+  --exclude 'checkpoints/' \
+  /mnt/g/temp/A-BiYe/BiShe3/5-MyProject/A-MyCode/ \
+  /home/project/5-MyProject/A-MyCode/
 
 # 如果系统里没有 rsync，可先安装
 sudo apt update
 sudo apt install -y rsync
 
 
-## 8. 只同步几个最常改的代码目录/文件
+## 7. 只同步几个最常改的代码文件
 
 cp -a /mnt/g/temp/A-BiYe/BiShe3/5-MyProject/A-MyCode/train.py /home/project/5-MyProject/A-MyCode/
+cp -a /mnt/g/temp/A-BiYe/BiShe3/5-MyProject/A-MyCode/eval.py /home/project/5-MyProject/A-MyCode/
+cp -a /mnt/g/temp/A-BiYe/BiShe3/5-MyProject/A-MyCode/visualize.py /home/project/5-MyProject/A-MyCode/
 cp -a /mnt/g/temp/A-BiYe/BiShe3/5-MyProject/A-MyCode/utility.py /home/project/5-MyProject/A-MyCode/
 cp -a /mnt/g/temp/A-BiYe/BiShe3/5-MyProject/A-MyCode/setting /home/project/5-MyProject/A-MyCode/
 cp -a /mnt/g/temp/A-BiYe/BiShe3/5-MyProject/A-MyCode/model /home/project/5-MyProject/A-MyCode/
 cp -a /mnt/g/temp/A-BiYe/BiShe3/5-MyProject/A-MyCode/modules /home/project/5-MyProject/A-MyCode/
+
+
+## 8. 分支同步与合并
+
+# 先提交当前 dev 改动
+git status
+git add train.py eval.py visualize.py utility.py setting/dataLoader.py setting/options.py 常用指令.txt
+git commit -m "feat: add baseline evaluation and visualization pipeline"
+git push origin dev
+
+# 把 dev 合并到 feature/reliability-gate
+git checkout feature/reliability-gate
+git merge dev
+git push origin feature/reliability-gate
+
+# 把 dev 合并到 feature/cross-state
+git checkout feature/cross-state
+git merge dev
+git push origin feature/cross-state
+
+# 把 dev 合并到 feature/robust-training
+git checkout feature/robust-training
+git merge dev
+git push origin feature/robust-training
+
+# 最后切回 dev
+git checkout dev
 
 
 ## 9. 常用检查指令
@@ -100,7 +141,8 @@ watch -n 1 nvidia-smi
 
 ## 10. 备注
 
-# 开发阶段建议：
-# 1) Houston2018 默认用 --eval_split small
-# 2) 先用 Houston2013 或 Houston2018 smoke test 验证环境
-# 3) 正式大实验再切到 --eval_split full
+# 当前阶段建议：
+# 1) Houston2013 作为主基线
+# 2) Houston2018 开发期默认用 --eval_split small
+# 3) 训练完成后固定执行 eval.py 和 visualize.py
+# 4) save_input_views=1 时会额外生成 HSI RGB、LiDAR 和四联图

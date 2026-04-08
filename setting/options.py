@@ -14,6 +14,7 @@ parser.add_argument('--start_epoch',type=int, default=1)
 parser.add_argument('--dataset', type=str, default='Berlin',help='Berlin')
 parser.add_argument('--useval', type=int, default=0)
 parser.add_argument('--save_path', type=str, default='./checkpoints/', help='the path to save models and logs')
+parser.add_argument('--run_name', type=str, default='', help='optional experiment run name, defaults to timestamp')
 
 parser.add_argument('--best_acc', type=float, default=0, help='save best accuracy')
 parser.add_argument('--best_epoch', type=int, default=1, help='save best epoch')

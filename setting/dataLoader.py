@@ -145,13 +145,13 @@ def get_loader(dataset, batchsize, num_workers=0, useval=0, pin_memory=True, eva
                                 shuffle=False,
                                 num_workers=num_workers,
                                 pin_memory=pin_memory,
-                                drop_last=True)
+                                drop_last=False)
     trntst_loader = data.DataLoader(dataset=HXtrntstset,
                             batch_size=batchsize,
                             shuffle=False,
                             num_workers=num_workers,
                             pin_memory=pin_memory,
-                            drop_last=True)
+                            drop_last=False)
     all_loader = data.DataLoader(
                 HXallset, batch_size=batchsize, shuffle=False,
                 pin_memory=pin_memory, num_workers=num_workers)
