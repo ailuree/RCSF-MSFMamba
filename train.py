@@ -63,7 +63,7 @@ best_epoch = opt.best_epoch
 
 
 def metric_summary_dict(metrics):
-    return {
+    summary = {
         "dataset": metrics["dataset"],
         "num_samples": metrics["num_samples"],
         "oa": metrics["oa"],
@@ -72,6 +72,31 @@ def metric_summary_dict(metrics):
         "macro_f1": metrics["macro_f1"],
         "per_class_accuracy": metrics["per_class_accuracy"],
     }
+    if "gate_x_avg" in metrics:
+        summary["gate_x_avg"] = metrics["gate_x_avg"]
+    if "gate_y_avg" in metrics:
+        summary["gate_y_avg"] = metrics["gate_y_avg"]
+    return summary
+
+
+def collect_gate_means(model_obj):
+    gate_x_values = []
+    gate_y_values = []
+
+    for layer in getattr(model_obj, "layers", []):
+        fss_block = getattr(layer, "FSSBlock", None)
+        if fss_block is None:
+            continue
+        gate_x = getattr(fss_block, "last_gate_x", None)
+        gate_y = getattr(fss_block, "last_gate_y", None)
+        if gate_x is not None:
+            gate_x_values.append(gate_x.mean().item())
+        if gate_y is not None:
+            gate_y_values.append(gate_y.mean().item())
+
+    gate_x_mean = sum(gate_x_values) / len(gate_x_values) if gate_x_values else 0.0
+    gate_y_mean = sum(gate_y_values) / len(gate_y_values) if gate_y_values else 0.0
+    return gate_x_mean, gate_y_mean
 
 
 def save_checkpoint(model_obj, optimizer_obj, checkpoint_path, epoch, metrics=None):
@@ -91,6 +116,8 @@ def train_one_epoch(data_loader, model_obj, optimizer_obj, epoch):
     iteration = len(data_loader)
     acc = 0.0
     num = 0
+    gate_x_running = 0.0
+    gate_y_running = 0.0
 
     for i, (_, xdata, hsi_pca, gt, _, _) in enumerate(data_loader, start=1):
         optimizer_obj.zero_grad()
@@ -106,12 +133,17 @@ def train_one_epoch(data_loader, model_obj, optimizer_obj, epoch):
         loss_all += loss.item()
         acc += compute_accuracy(outputs, gt) * len(gt)
         num += len(gt)
+        batch_gate_x, batch_gate_y = collect_gate_means(model_obj)
+        gate_x_running += batch_gate_x
+        gate_y_running += batch_gate_y
 
         if opt.print_freq > 0 and (i == 1 or i % opt.print_freq == 0 or i == iteration):
             print(
                 f"Train Epoch [{epoch:03d}/{opt.epoch:03d}] "
                 f"Step [{i:04d}/{iteration:04d}] "
-                f"Loss: {loss.item():.4f}"
+                f"Loss: {loss.item():.4f} "
+                f"GateX: {batch_gate_x:.4f} "
+                f"GateY: {batch_gate_y:.4f}"
             )
 
         if opt.max_train_batches > 0 and i >= opt.max_train_batches:
@@ -120,15 +152,23 @@ def train_one_epoch(data_loader, model_obj, optimizer_obj, epoch):
 
     loss_avg = loss_all / i
     acc_avg = acc / max(num, 1)
+    gate_x_avg = gate_x_running / i
+    gate_y_avg = gate_y_running / i
     logging.info(
-        "Epoch [%03d/%03d], Loss_train_avg: %.4f, acc_avg: %.4f",
+        "Epoch [%03d/%03d], Loss_train_avg: %.4f, acc_avg: %.4f, gate_x_avg: %.4f, gate_y_avg: %.4f",
         epoch,
         opt.epoch,
         loss_avg,
         acc_avg,
+        gate_x_avg,
+        gate_y_avg,
     )
-    print(f"Train Epoch [{epoch:03d}/{opt.epoch:03d}] Done, Loss_avg: {loss_avg:.4f}, Acc_avg: {acc_avg:.4f}")
-    return loss_avg, acc_avg
+    print(
+        f"Train Epoch [{epoch:03d}/{opt.epoch:03d}] Done, "
+        f"Loss_avg: {loss_avg:.4f}, Acc_avg: {acc_avg:.4f}, "
+        f"GateX_avg: {gate_x_avg:.4f}, GateY_avg: {gate_y_avg:.4f}"
+    )
+    return loss_avg, acc_avg, gate_x_avg, gate_y_avg
 
 
 def evaluate_epoch(data_loader, model_obj):
@@ -159,12 +199,14 @@ if __name__ == "__main__":
     time_begin = time.time()
 
     for epoch in range(opt.start_epoch, opt.epoch + 1):
-        train_loss, train_acc = train_one_epoch(train_loader, model, optimizer, epoch)
+        train_loss, train_acc, gate_x_avg, gate_y_avg = train_one_epoch(train_loader, model, optimizer, epoch)
 
         epoch_metrics = {
             "epoch": epoch,
             "train_loss": train_loss,
             "train_acc": train_acc * 100,
+            "gate_x_avg": gate_x_avg,
+            "gate_y_avg": gate_y_avg,
         }
 
         if opt.skip_test:
@@ -178,6 +220,8 @@ if __name__ == "__main__":
                     "aa": metrics["aa"],
                     "kappa": metrics["kappa"],
                     "macro_f1": metrics["macro_f1"],
+                    "gate_x_avg": gate_x_avg,
+                    "gate_y_avg": gate_y_avg,
                 }
             )
             print(
@@ -215,6 +259,8 @@ if __name__ == "__main__":
                 "aa": round(epoch_metrics.get("aa", 0.0), 4),
                 "kappa": round(epoch_metrics.get("kappa", 0.0), 4),
                 "macro_f1": round(epoch_metrics.get("macro_f1", 0.0), 4),
+                "gate_x_avg": round(epoch_metrics.get("gate_x_avg", 0.0), 6),
+                "gate_y_avg": round(epoch_metrics.get("gate_y_avg", 0.0), 6),
                 "best_oa": round(best_acc, 4),
                 "best_epoch": best_epoch,
             },
@@ -222,14 +268,18 @@ if __name__ == "__main__":
 
         elapsed = time.time() - time_begin
         print(f"Best OA: {best_acc:.4f} at epoch {best_epoch:03d}")
+        print(f"Gate means: GateX={gate_x_avg:.4f}, GateY={gate_y_avg:.4f}")
         print(f"Time out:{elapsed:.2f}s\n")
         logging.info("Best_acc:%.4f,Best_epoch:%03d", best_acc, best_epoch)
+        logging.info("Gate means: GateX=%.4f, GateY=%.4f", gate_x_avg, gate_y_avg)
         logging.info("Time out:%.2fs\n", elapsed)
 
     utility.save_json(
         {
             "best_oa": best_acc,
             "best_epoch": best_epoch,
+            "gate_x_avg": gate_x_avg,
+            "gate_y_avg": gate_y_avg,
             "run_dir": run_dirs["run_dir"],
         },
         os.path.join(run_dirs["metrics_dir"], "run_summary.json"),
