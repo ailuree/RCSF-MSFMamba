@@ -408,6 +408,40 @@ class Fuse_SS2D(nn.Module):
         ya = self.out_norm(ya)
         return ya
 
+
+class ReliabilityGate(nn.Module):
+    def __init__(self, dim_x, dim_y, reduction=4):
+        super().__init__()
+        hidden_dim = max((dim_x + dim_y) // reduction, 8)
+        self.gap = nn.AdaptiveAvgPool2d(1)
+        self.gate_x = nn.Sequential(
+            nn.Linear(dim_x + dim_y, hidden_dim),
+            nn.SiLU(),
+            nn.Linear(hidden_dim, dim_x),
+            nn.Sigmoid(),
+        )
+        self.gate_y = nn.Sequential(
+            nn.Linear(dim_x + dim_y, hidden_dim),
+            nn.SiLU(),
+            nn.Linear(hidden_dim, dim_y),
+            nn.Sigmoid(),
+        )
+        self.last_gate_x = None
+        self.last_gate_y = None
+
+    def forward(self, x_feat, y_feat):
+        z_x = self.gap(x_feat).flatten(1)
+        z_y = self.gap(y_feat).flatten(1)
+        z_xy = torch.cat([z_x, z_y], dim=1)
+
+        gate_x = self.gate_x(z_xy).unsqueeze(1).unsqueeze(1)
+        gate_y = self.gate_y(z_xy).unsqueeze(1).unsqueeze(1)
+
+        self.last_gate_x = gate_x.detach()
+        self.last_gate_y = gate_y.detach()
+        return gate_x, gate_y
+
+
 class FSSBlock(nn.Module):
     def __init__(
             self,
@@ -454,9 +488,12 @@ class FSSBlock(nn.Module):
         
         self.attention1 = Fuse_SS2D(d_model1=hidden_dim1, d_model2=hidden_dim2, d_state=d_state,expand=expand,dropout=attn_drop_rate, **kwargs)#代码中的SS2D完成的内容更多
         self.attention2 = Fuse_SS2D(d_model1=hidden_dim2, d_model2=hidden_dim1, d_state=d_state,expand=expand,dropout=attn_drop_rate, **kwargs)
+        self.reliability_gate = ReliabilityGate(self.d_inner1, self.d_inner2)
         self.out_proj1 = nn.Linear(self.d_inner1, hidden_dim1, bias=bias)
         self.out_proj2 = nn.Linear(self.d_inner2, hidden_dim2, bias=bias)
         self.drop_path = DropPath(drop_path)
+        self.last_gate_x = None
+        self.last_gate_y = None
         
 
     def forward(self, x, y):
@@ -491,6 +528,11 @@ class FSSBlock(nn.Module):
         
         x_out = x_out * F.silu(x_2)
         y_out = y_out * F.silu(y_2)
+        gate_x, gate_y = self.reliability_gate(x_1, y_1)
+        x_out = gate_x * x_out
+        y_out = gate_y * y_out
+        self.last_gate_x = gate_x.detach()
+        self.last_gate_y = gate_y.detach()
         
         out_x=self.out_proj1(x_out)
         out_y=self.out_proj2(y_out)
@@ -723,4 +765,3 @@ class SpecMambaBlock(nn.Module):
         x = x + input
         x = x.reshape(B,C,N,H,W)
         return x
-
