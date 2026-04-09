@@ -249,6 +249,39 @@ class MS2D(nn.Module):
             out = self.dropout(out)
         return out
 
+
+class CrossStateModulator(nn.Module):
+    def __init__(
+            self,
+            in_channels,
+            d_inner,
+            d_state,
+            hidden_ratio=0.5,
+            scale=0.5,
+    ):
+        super().__init__()
+        hidden_dim = max(16, int(in_channels * hidden_ratio))
+        self.scale = scale
+        self.pool = nn.AdaptiveAvgPool2d(1)
+        self.shared = nn.Sequential(
+            nn.Linear(in_channels, hidden_dim, bias=True),
+            nn.SiLU(),
+        )
+        self.dt_head = nn.Linear(hidden_dim, d_inner, bias=True)
+        self.b_head = nn.Linear(hidden_dim, d_state, bias=True)
+        self.c_head = nn.Linear(hidden_dim, d_state, bias=True)
+
+    def _to_alpha(self, raw_alpha):
+        return 1.0 + self.scale * torch.tanh(raw_alpha)
+
+    def forward(self, x):
+        summary = self.pool(x).flatten(1)
+        shared_feat = self.shared(summary)
+        alpha_dts = self._to_alpha(self.dt_head(shared_feat)).view(x.shape[0], 1, -1, 1)
+        alpha_bs = self._to_alpha(self.b_head(shared_feat)).view(x.shape[0], 1, -1, 1)
+        alpha_cs = self._to_alpha(self.c_head(shared_feat)).view(x.shape[0], 1, -1, 1)
+        return alpha_dts, alpha_bs, alpha_cs
+
 class Fuse_SS2D(nn.Module):
     def __init__(
             self,
@@ -306,6 +339,10 @@ class Fuse_SS2D(nn.Module):
         self.Ds = self.D_init(self.d_inner2, copies=4, merge=True)  # (K=4, D, N)
 
         self.selective_scan = selective_scan_fn
+        self.cross_state_modulator = CrossStateModulator(self.d_inner1, self.d_inner2, self.d_state)
+        self.last_alpha_dts_mean = None
+        self.last_alpha_bs_mean = None
+        self.last_alpha_cs_mean = None
 
         self.out_norm = nn.LayerNorm(self.d_inner2)
 
@@ -371,6 +408,13 @@ class Fuse_SS2D(nn.Module):
         x_dbl = torch.einsum("b k d l, k c d -> b k c l", xs.view(B, K, -1, L), self.x_proj_weight)
         dts, Bs, Cs = torch.split(x_dbl, [self.dt_rank, self.d_state, self.d_state], dim=2)
         dts = torch.einsum("b k r l, k d r -> b k d l", dts.view(B, K, -1, L), self.dt_projs_weight)
+        alpha_dts, alpha_bs, alpha_cs = self.cross_state_modulator(x)
+        dts = dts * alpha_dts
+        Bs = Bs * alpha_bs
+        Cs = Cs * alpha_cs
+        self.last_alpha_dts_mean = alpha_dts.detach().mean().item()
+        self.last_alpha_bs_mean = alpha_bs.detach().mean().item()
+        self.last_alpha_cs_mean = alpha_cs.detach().mean().item()
         xs = xs.float().view(B, -1, L)
         dts = dts.contiguous().float().view(B, -1, L) # (b, k * d, l)
         Bs = Bs.float().view(B, K, -1, L)
