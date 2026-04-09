@@ -85,12 +85,49 @@ def save_checkpoint(model_obj, optimizer_obj, checkpoint_path, epoch, metrics=No
     torch.save(payload, checkpoint_path)
 
 
+def collect_cross_state_means(model_obj):
+    alpha_dts_means = []
+    alpha_bs_means = []
+    alpha_cs_means = []
+
+    for layer in getattr(model_obj, "layers", []):
+        fss_block = getattr(layer, "FSSBlock", None)
+        if fss_block is None:
+            continue
+        for attention_name in ("attention1", "attention2"):
+            attention = getattr(fss_block, attention_name, None)
+            if attention is None:
+                continue
+            alpha_dts = getattr(attention, "last_alpha_dts_mean", None)
+            alpha_bs = getattr(attention, "last_alpha_bs_mean", None)
+            alpha_cs = getattr(attention, "last_alpha_cs_mean", None)
+            if alpha_dts is not None:
+                alpha_dts_means.append(alpha_dts)
+            if alpha_bs is not None:
+                alpha_bs_means.append(alpha_bs)
+            if alpha_cs is not None:
+                alpha_cs_means.append(alpha_cs)
+
+    if not alpha_dts_means:
+        return None
+
+    return {
+        "alpha_dts_mean": sum(alpha_dts_means) / len(alpha_dts_means),
+        "alpha_bs_mean": sum(alpha_bs_means) / len(alpha_bs_means),
+        "alpha_cs_mean": sum(alpha_cs_means) / len(alpha_cs_means),
+    }
+
+
 def train_one_epoch(data_loader, model_obj, optimizer_obj, epoch):
     model_obj.train()
     loss_all = 0.0
     iteration = len(data_loader)
     acc = 0.0
     num = 0
+    alpha_dts_sum = 0.0
+    alpha_bs_sum = 0.0
+    alpha_cs_sum = 0.0
+    alpha_count = 0
 
     for i, (_, xdata, hsi_pca, gt, _, _) in enumerate(data_loader, start=1):
         optimizer_obj.zero_grad()
@@ -106,13 +143,26 @@ def train_one_epoch(data_loader, model_obj, optimizer_obj, epoch):
         loss_all += loss.item()
         acc += compute_accuracy(outputs, gt) * len(gt)
         num += len(gt)
+        cross_state_means = collect_cross_state_means(model_obj)
+        if cross_state_means is not None:
+            alpha_dts_sum += cross_state_means["alpha_dts_mean"]
+            alpha_bs_sum += cross_state_means["alpha_bs_mean"]
+            alpha_cs_sum += cross_state_means["alpha_cs_mean"]
+            alpha_count += 1
 
         if opt.print_freq > 0 and (i == 1 or i % opt.print_freq == 0 or i == iteration):
-            print(
+            message = (
                 f"Train Epoch [{epoch:03d}/{opt.epoch:03d}] "
                 f"Step [{i:04d}/{iteration:04d}] "
                 f"Loss: {loss.item():.4f}"
             )
+            if cross_state_means is not None:
+                message += (
+                    f" AlphaDt: {cross_state_means['alpha_dts_mean']:.4f}"
+                    f" AlphaB: {cross_state_means['alpha_bs_mean']:.4f}"
+                    f" AlphaC: {cross_state_means['alpha_cs_mean']:.4f}"
+                )
+            print(message)
 
         if opt.max_train_batches > 0 and i >= opt.max_train_batches:
             print(f"Stop early after {i} train batches for smoke test.")
@@ -120,15 +170,35 @@ def train_one_epoch(data_loader, model_obj, optimizer_obj, epoch):
 
     loss_avg = loss_all / i
     acc_avg = acc / max(num, 1)
+    alpha_summary = None
+    if alpha_count > 0:
+        alpha_summary = {
+            "alpha_dts_mean": alpha_dts_sum / alpha_count,
+            "alpha_bs_mean": alpha_bs_sum / alpha_count,
+            "alpha_cs_mean": alpha_cs_sum / alpha_count,
+        }
     logging.info(
-        "Epoch [%03d/%03d], Loss_train_avg: %.4f, acc_avg: %.4f",
+        "Epoch [%03d/%03d], Loss_train_avg: %.4f, acc_avg: %.4f, alpha_dt_avg: %s, alpha_b_avg: %s, alpha_c_avg: %s",
         epoch,
         opt.epoch,
         loss_avg,
         acc_avg,
+        f"{alpha_summary['alpha_dts_mean']:.4f}" if alpha_summary is not None else "N/A",
+        f"{alpha_summary['alpha_bs_mean']:.4f}" if alpha_summary is not None else "N/A",
+        f"{alpha_summary['alpha_cs_mean']:.4f}" if alpha_summary is not None else "N/A",
     )
-    print(f"Train Epoch [{epoch:03d}/{opt.epoch:03d}] Done, Loss_avg: {loss_avg:.4f}, Acc_avg: {acc_avg:.4f}")
-    return loss_avg, acc_avg
+    summary_message = (
+        f"Train Epoch [{epoch:03d}/{opt.epoch:03d}] Done, "
+        f"Loss_avg: {loss_avg:.4f}, Acc_avg: {acc_avg:.4f}"
+    )
+    if alpha_summary is not None:
+        summary_message += (
+            f", AlphaDt_avg: {alpha_summary['alpha_dts_mean']:.4f}"
+            f", AlphaB_avg: {alpha_summary['alpha_bs_mean']:.4f}"
+            f", AlphaC_avg: {alpha_summary['alpha_cs_mean']:.4f}"
+        )
+    print(summary_message)
+    return loss_avg, acc_avg, alpha_summary
 
 
 def evaluate_epoch(data_loader, model_obj):
@@ -159,13 +229,15 @@ if __name__ == "__main__":
     time_begin = time.time()
 
     for epoch in range(opt.start_epoch, opt.epoch + 1):
-        train_loss, train_acc = train_one_epoch(train_loader, model, optimizer, epoch)
+        train_loss, train_acc, alpha_summary = train_one_epoch(train_loader, model, optimizer, epoch)
 
         epoch_metrics = {
             "epoch": epoch,
             "train_loss": train_loss,
             "train_acc": train_acc * 100,
         }
+        if alpha_summary is not None:
+            epoch_metrics.update(alpha_summary)
 
         if opt.skip_test:
             print("Skip test stage for smoke test.")
@@ -215,6 +287,9 @@ if __name__ == "__main__":
                 "aa": round(epoch_metrics.get("aa", 0.0), 4),
                 "kappa": round(epoch_metrics.get("kappa", 0.0), 4),
                 "macro_f1": round(epoch_metrics.get("macro_f1", 0.0), 4),
+                "alpha_dts_mean": round(epoch_metrics.get("alpha_dts_mean", 0.0), 6),
+                "alpha_bs_mean": round(epoch_metrics.get("alpha_bs_mean", 0.0), 6),
+                "alpha_cs_mean": round(epoch_metrics.get("alpha_cs_mean", 0.0), 6),
                 "best_oa": round(best_acc, 4),
                 "best_epoch": best_epoch,
             },
