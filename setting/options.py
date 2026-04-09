@@ -23,5 +23,12 @@ parser.add_argument('--print_freq', type=int, default=20, help='print training/t
 parser.add_argument('--max_train_batches', type=int, default=0, help='limit train batches per epoch for smoke test, 0 means no limit')
 parser.add_argument('--max_test_batches', type=int, default=0, help='limit test batches for smoke test, 0 means no limit')
 parser.add_argument('--eval_split', type=str, default='small', choices=['small', 'full'], help='evaluation split for Houston2018')
+parser.add_argument('--robust_train', type=int, default=0, help='enable degraded-branch robust training')
+parser.add_argument('--lambda_deg', type=float, default=1.0, help='weight for degraded branch cross entropy loss')
+parser.add_argument('--lambda_cons', type=float, default=0.5, help='weight for consistency KL loss')
+parser.add_argument('--modality_dropout_prob', type=float, default=0.2, help='probability of dropping one modality in degraded branch')
+parser.add_argument('--hsi_dropout_prob', type=float, default=0.15, help='band dropout probability for HSI in degraded branch')
+parser.add_argument('--hsi_noise_std', type=float, default=0.05, help='gaussian noise std for HSI PCA in degraded branch')
+parser.add_argument('--aux_noise_std', type=float, default=0.03, help='gaussian noise std for auxiliary modality in degraded branch')
 
 opt = parser.parse_args()
