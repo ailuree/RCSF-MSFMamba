@@ -137,7 +137,7 @@ def evaluate_with_mode(net, data_loader, dataset_name, device, print_freq, args)
         "hsi_band_dropout_ratio": 0.0,
     }
     stat_count = 0
-    start_time = time.time()
+    start_time = time.perf_counter()
 
     with torch.no_grad():
         for batch_idx, (hsi, x, hsi_pca, test_labels, h, w) in enumerate(data_loader, start=1):
@@ -162,7 +162,7 @@ def evaluate_with_mode(net, data_loader, dataset_name, device, print_freq, args)
             if total_batches is not None and (
                 batch_idx == 1 or batch_idx % print_freq == 0 or batch_idx == total_batches
             ):
-                elapsed = time.time() - start_time
+                elapsed = time.perf_counter() - start_time
                 message = (
                     f"Eval Step [{batch_idx:04d}/{total_batches:04d}] "
                     f"Samples: {sum(arr.shape[0] for arr in pred_list)} "

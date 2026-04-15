@@ -247,7 +247,7 @@ def evaluate_model(net, data_loader, dataset_name, device, print_freq=20):
     total_batches = len(data_loader) if hasattr(data_loader, "__len__") else None
 
     net.eval()
-    start_time = time.time()
+    start_time = time.perf_counter()
     pred_list = []
     true_list = []
     coord_list = []
@@ -268,7 +268,7 @@ def evaluate_model(net, data_loader, dataset_name, device, print_freq=20):
             if total_batches is not None and (
                 batch_idx == 1 or batch_idx % print_freq == 0 or batch_idx == total_batches
             ):
-                elapsed = time.time() - start_time
+                elapsed = time.perf_counter() - start_time
                 print(
                     f"Eval Step [{batch_idx:04d}/{total_batches:04d}] "
                     f"Samples: {sum(arr.shape[0] for arr in pred_list)} "
@@ -335,7 +335,7 @@ def evaluate_model(net, data_loader, dataset_name, device, print_freq=20):
 
 def predict_loader(net, data_loader, device, print_freq=20):
     total_batches = len(data_loader) if hasattr(data_loader, "__len__") else None
-    start_time = time.time()
+    start_time = time.perf_counter()
     pred_list = []
     coord_list = []
 
@@ -354,7 +354,7 @@ def predict_loader(net, data_loader, device, print_freq=20):
             if total_batches is not None and (
                 batch_idx == 1 or batch_idx % print_freq == 0 or batch_idx == total_batches
             ):
-                elapsed = time.time() - start_time
+                elapsed = time.perf_counter() - start_time
                 print(
                     f"Predict Step [{batch_idx:04d}/{total_batches:04d}] "
                     f"Samples: {sum(arr.shape[0] for arr in pred_list)} "
