@@ -16,9 +16,9 @@ os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["CUDA_VISIBLE_DEVICES"] = opt.gpu_id
 
-random_seed_setting(6)
-torch.backends.cudnn.deterministic = False
-torch.backends.cudnn.benchmark = True
+random_seed_setting(opt.seed)
+torch.backends.cudnn.deterministic = bool(opt.deterministic)
+torch.backends.cudnn.benchmark = not bool(opt.deterministic)
 torch.backends.cudnn.enabled = True
 
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -38,6 +38,7 @@ logging.basicConfig(
 logging.info("********************start train!********************")
 logging.info("Run directory: %s", run_dirs["run_dir"])
 logging.info("Config--epoch:%s; lr:%s; batch_size:%s;", opt.epoch, opt.lr, opt.batchsize)
+logging.info("Seed config--seed:%s; deterministic:%s;", opt.seed, opt.deterministic)
 utility.save_json(vars(opt), os.path.join(run_dirs["metrics_dir"], "train_config.json"))
 
 train_loader, test_loader, trntst_loader, all_loader, train_num, val_num, trntst_num = get_loader(

@@ -9,6 +9,8 @@ parser.add_argument('--batchsize', type=int, default=128, help='training batch s
 parser.add_argument('--gpu_id', type=str, default='0', help='the gpu id')
 parser.add_argument('--num_work',type=int, default=0)
 parser.add_argument('--start_epoch',type=int, default=1)
+parser.add_argument('--seed', type=int, default=6, help='random seed for reproducible training runs')
+parser.add_argument('--deterministic', type=int, default=1, help='set 1 for deterministic cudnn, 0 for faster non-deterministic training')
 
 # training dataset
 parser.add_argument('--dataset', type=str, default='Berlin',help='Berlin')
