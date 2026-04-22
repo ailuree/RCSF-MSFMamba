@@ -257,7 +257,7 @@ class CrossStateModulator(nn.Module):
             d_inner,
             d_state,
             hidden_ratio=0.5,
-            scale=0.75,
+            scale=1.0,
     ):
         super().__init__()
         hidden_dim = max(16, int(in_channels * hidden_ratio))
@@ -274,8 +274,10 @@ class CrossStateModulator(nn.Module):
     def _to_alpha(self, raw_alpha):
         return 1.0 + self.scale * torch.tanh(raw_alpha)
 
-    def forward(self, x):
+    def forward(self, x, y=None):
         summary = self.pool(x).flatten(1)
+        if y is not None:
+            summary = torch.cat([summary, self.pool(y).flatten(1)], dim=1)
         shared_feat = self.shared(summary)
         alpha_dts = self._to_alpha(self.dt_head(shared_feat)).view(x.shape[0], 1, -1, 1)
         alpha_bs = self._to_alpha(self.b_head(shared_feat)).view(x.shape[0], 1, -1, 1)
@@ -339,8 +341,9 @@ class Fuse_SS2D(nn.Module):
         self.Ds = self.D_init(self.d_inner2, copies=4, merge=True)  # (K=4, D, N)
 
         self.selective_scan = selective_scan_fn
-        self.cross_state_modulator = CrossStateModulator(self.d_inner1, self.d_inner2, self.d_state)
-        # v2: keep the modulation stronger, but only apply it to B/C state terms first.
+        # v3: use joint x/y summaries to generate stronger cross-state modulation, but keep
+        # the modulation on the more stable B/C terms only.
+        self.cross_state_modulator = CrossStateModulator(self.d_inner1 + self.d_inner2, self.d_inner2, self.d_state)
         self.modulate_dts = False
         self.last_alpha_dts_mean = None
         self.last_alpha_bs_mean = None
@@ -410,7 +413,7 @@ class Fuse_SS2D(nn.Module):
         x_dbl = torch.einsum("b k d l, k c d -> b k c l", xs.view(B, K, -1, L), self.x_proj_weight)
         dts, Bs, Cs = torch.split(x_dbl, [self.dt_rank, self.d_state, self.d_state], dim=2)
         dts = torch.einsum("b k r l, k d r -> b k d l", dts.view(B, K, -1, L), self.dt_projs_weight)
-        alpha_dts, alpha_bs, alpha_cs = self.cross_state_modulator(x)
+        alpha_dts, alpha_bs, alpha_cs = self.cross_state_modulator(x, y)
         if self.modulate_dts:
             dts = dts * alpha_dts
         Bs = Bs * alpha_bs
