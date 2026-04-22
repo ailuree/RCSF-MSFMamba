@@ -257,7 +257,7 @@ class CrossStateModulator(nn.Module):
             d_inner,
             d_state,
             hidden_ratio=0.5,
-            scale=0.5,
+            scale=0.75,
     ):
         super().__init__()
         hidden_dim = max(16, int(in_channels * hidden_ratio))
@@ -340,6 +340,8 @@ class Fuse_SS2D(nn.Module):
 
         self.selective_scan = selective_scan_fn
         self.cross_state_modulator = CrossStateModulator(self.d_inner1, self.d_inner2, self.d_state)
+        # v2: keep the modulation stronger, but only apply it to B/C state terms first.
+        self.modulate_dts = False
         self.last_alpha_dts_mean = None
         self.last_alpha_bs_mean = None
         self.last_alpha_cs_mean = None
@@ -409,7 +411,8 @@ class Fuse_SS2D(nn.Module):
         dts, Bs, Cs = torch.split(x_dbl, [self.dt_rank, self.d_state, self.d_state], dim=2)
         dts = torch.einsum("b k r l, k d r -> b k d l", dts.view(B, K, -1, L), self.dt_projs_weight)
         alpha_dts, alpha_bs, alpha_cs = self.cross_state_modulator(x)
-        dts = dts * alpha_dts
+        if self.modulate_dts:
+            dts = dts * alpha_dts
         Bs = Bs * alpha_bs
         Cs = Cs * alpha_cs
         self.last_alpha_dts_mean = alpha_dts.detach().mean().item()
