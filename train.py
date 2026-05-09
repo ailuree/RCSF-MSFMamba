@@ -81,6 +81,15 @@ def metric_summary_dict(metrics):
 
 
 def collect_gate_means(model_obj):
+    def _to_gate_mean(value):
+        if value is None:
+            return None
+        if isinstance(value, (float, int)):
+            return float(value)
+        if torch.is_tensor(value):
+            return float(value.mean().item())
+        return float(value)
+
     gate_x_values = []
     gate_y_values = []
 
@@ -88,12 +97,12 @@ def collect_gate_means(model_obj):
         fss_block = getattr(layer, "FSSBlock", None)
         if fss_block is None:
             continue
-        gate_x = getattr(fss_block, "last_gate_x", None)
-        gate_y = getattr(fss_block, "last_gate_y", None)
+        gate_x = _to_gate_mean(getattr(fss_block, "last_gate_x", None))
+        gate_y = _to_gate_mean(getattr(fss_block, "last_gate_y", None))
         if gate_x is not None:
-            gate_x_values.append(gate_x.mean().item())
+            gate_x_values.append(gate_x)
         if gate_y is not None:
-            gate_y_values.append(gate_y.mean().item())
+            gate_y_values.append(gate_y)
 
     gate_x_mean = sum(gate_x_values) / len(gate_x_values) if gate_x_values else 0.0
     gate_y_mean = sum(gate_y_values) / len(gate_y_values) if gate_y_values else 0.0
