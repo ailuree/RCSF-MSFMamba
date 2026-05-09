@@ -251,8 +251,9 @@ def evaluate_model(net, data_loader, dataset_name, device, print_freq=20):
     pred_list = []
     true_list = []
     coord_list = []
+    sample_count = 0
 
-    with torch.no_grad():
+    with torch.inference_mode():
         for batch_idx, (_, x, hsi_pca, test_labels, h, w) in enumerate(data_loader, start=1):
             hsi_pca = hsi_pca.to(device)
             x = x.to(device)
@@ -264,6 +265,7 @@ def evaluate_model(net, data_loader, dataset_name, device, print_freq=20):
             pred_list.append(preds)
             true_list.append(labels_np)
             coord_list.append(coords_np)
+            sample_count += preds.shape[0]
 
             if total_batches is not None and (
                 batch_idx == 1 or batch_idx % print_freq == 0 or batch_idx == total_batches
@@ -271,9 +273,11 @@ def evaluate_model(net, data_loader, dataset_name, device, print_freq=20):
                 elapsed = time.time() - start_time
                 print(
                     f"Eval Step [{batch_idx:04d}/{total_batches:04d}] "
-                    f"Samples: {sum(arr.shape[0] for arr in pred_list)} "
+                    f"Samples: {sample_count} "
                     f"Elapsed: {elapsed:.2f}s"
                 )
+
+            del hsi_pca, x, outputs, preds, labels_np, coords_np
 
     y_pred = np.concatenate(pred_list, axis=0) if pred_list else np.array([], dtype=np.int64)
     y_true = np.concatenate(true_list, axis=0) if true_list else np.array([], dtype=np.int64)
@@ -338,9 +342,10 @@ def predict_loader(net, data_loader, device, print_freq=20):
     start_time = time.time()
     pred_list = []
     coord_list = []
+    sample_count = 0
 
     net.eval()
-    with torch.no_grad():
+    with torch.inference_mode():
         for batch_idx, (_, x, hsi_pca, _, h, w) in enumerate(data_loader, start=1):
             hsi_pca = hsi_pca.to(device)
             x = x.to(device)
@@ -350,6 +355,7 @@ def predict_loader(net, data_loader, device, print_freq=20):
 
             pred_list.append(preds)
             coord_list.append(coords_np)
+            sample_count += preds.shape[0]
 
             if total_batches is not None and (
                 batch_idx == 1 or batch_idx % print_freq == 0 or batch_idx == total_batches
@@ -357,9 +363,11 @@ def predict_loader(net, data_loader, device, print_freq=20):
                 elapsed = time.time() - start_time
                 print(
                     f"Predict Step [{batch_idx:04d}/{total_batches:04d}] "
-                    f"Samples: {sum(arr.shape[0] for arr in pred_list)} "
+                    f"Samples: {sample_count} "
                     f"Elapsed: {elapsed:.2f}s"
                 )
+
+            del hsi_pca, x, outputs, preds, coords_np
 
     y_pred = np.concatenate(pred_list, axis=0) if pred_list else np.array([], dtype=np.int64)
     coords = np.concatenate(coord_list, axis=0) if coord_list else np.empty((0, 2), dtype=np.int64)
