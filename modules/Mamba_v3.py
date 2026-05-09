@@ -481,8 +481,8 @@ class ReliabilityGate(nn.Module):
         gate_x = self.gate_x(z_xy).unsqueeze(1).unsqueeze(1)
         gate_y = self.gate_y(z_xy).unsqueeze(1).unsqueeze(1)
 
-        self.last_gate_x = gate_x.detach()
-        self.last_gate_y = gate_y.detach()
+        self.last_gate_x = float(gate_x.detach().mean().item())
+        self.last_gate_y = float(gate_y.detach().mean().item())
         return gate_x, gate_y
 
 
@@ -575,8 +575,8 @@ class FSSBlock(nn.Module):
         gate_x, gate_y = self.reliability_gate(x_1, y_1)
         x_out = gate_x * x_out
         y_out = gate_y * y_out
-        self.last_gate_x = gate_x.detach()
-        self.last_gate_y = gate_y.detach()
+        self.last_gate_x = float(gate_x.detach().mean().item())
+        self.last_gate_y = float(gate_y.detach().mean().item())
         
         out_x=self.out_proj1(x_out)
         out_y=self.out_proj2(y_out)
