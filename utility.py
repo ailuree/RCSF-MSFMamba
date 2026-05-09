@@ -339,7 +339,7 @@ def evaluate_model(net, data_loader, dataset_name, device, print_freq=20):
 
 def predict_loader(net, data_loader, device, print_freq=20):
     total_batches = len(data_loader) if hasattr(data_loader, "__len__") else None
-    start_time = time.time()
+    start_time = time.perf_counter()
     pred_list = []
     coord_list = []
     sample_count = 0
@@ -360,7 +360,7 @@ def predict_loader(net, data_loader, device, print_freq=20):
             if total_batches is not None and (
                 batch_idx == 1 or batch_idx % print_freq == 0 or batch_idx == total_batches
             ):
-                elapsed = time.time() - start_time
+                elapsed = time.perf_counter() - start_time
                 print(
                     f"Predict Step [{batch_idx:04d}/{total_batches:04d}] "
                     f"Samples: {sample_count} "
@@ -372,6 +372,51 @@ def predict_loader(net, data_loader, device, print_freq=20):
     y_pred = np.concatenate(pred_list, axis=0) if pred_list else np.array([], dtype=np.int64)
     coords = np.concatenate(coord_list, axis=0) if coord_list else np.empty((0, 2), dtype=np.int64)
     return {"y_pred": y_pred, "coords": coords}
+
+
+def predict_maps_loader(net, data_loader, device, image_shape, gt_map=None, print_freq=20):
+    total_batches = len(data_loader) if hasattr(data_loader, "__len__") else None
+    start_time = time.perf_counter()
+    pred_map = np.zeros(image_shape, dtype=np.uint8)
+    visited_mask = np.zeros(image_shape, dtype=bool)
+    sample_count = 0
+
+    net.eval()
+    with torch.inference_mode():
+        for batch_idx, (_, x, hsi_pca, _, h, w) in enumerate(data_loader, start=1):
+            hsi_pca = hsi_pca.to(device)
+            x = x.to(device)
+            _, outputs = net(hsi_pca.unsqueeze(1), x)
+            preds = torch.argmax(outputs, dim=1).detach().cpu().numpy().astype(np.uint8)
+            rows = h.detach().cpu().numpy().astype(np.int64)
+            cols = w.detach().cpu().numpy().astype(np.int64)
+
+            pred_map[rows, cols] = preds + 1
+            visited_mask[rows, cols] = True
+            sample_count += preds.shape[0]
+
+            if total_batches is not None and (
+                batch_idx == 1 or batch_idx % print_freq == 0 or batch_idx == total_batches
+            ):
+                elapsed = time.perf_counter() - start_time
+                print(
+                    f"Predict Step [{batch_idx:04d}/{total_batches:04d}] "
+                    f"Samples: {sample_count} "
+                    f"Elapsed: {elapsed:.2f}s"
+                )
+
+            del hsi_pca, x, outputs, preds, rows, cols
+
+    gt_masked = None
+    if gt_map is not None:
+        gt_masked = np.zeros_like(gt_map, dtype=np.uint8)
+        gt_masked[visited_mask] = gt_map[visited_mask].astype(np.uint8)
+
+    return {
+        "pred_map": pred_map,
+        "visited_mask": visited_mask,
+        "gt_map": gt_masked,
+    }
 
 
 def save_evaluation_results(result_bundle, metrics_dir, prefix="test"):

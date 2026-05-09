@@ -72,16 +72,18 @@ if __name__ == "__main__":
     model = Net(args.dataset).to(device)
     utility.load_checkpoint(model, checkpoint_path, device)
 
-    prediction_bundle = utility.predict_loader(
+    gt_full = utility.load_ground_truth(args.dataset)
+    prediction_bundle = utility.predict_maps_loader(
         net=model,
         data_loader=data_loader,
         device=device,
+        image_shape=gt_full.shape,
+        gt_map=gt_full,
         print_freq=max(args.print_freq, 1),
     )
 
-    gt_full = utility.load_ground_truth(args.dataset)
-    pred_map = utility.reconstruct_label_map(prediction_bundle["coords"], prediction_bundle["y_pred"], gt_full.shape)
-    gt_map = utility.mask_ground_truth(gt_full, prediction_bundle["coords"])
+    pred_map = prediction_bundle["pred_map"]
+    gt_map = prediction_bundle["gt_map"]
     prefix = "" if args.split == "all" else args.split
     utility.save_prediction_artifacts(
         dataset_name=args.dataset,
