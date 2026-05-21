@@ -1,11 +1,36 @@
 import { BarChart3, Binary, Compass, Map, MonitorPlay } from 'lucide-react'
 
 export const views = [
-  { key: 'overview', label: '项目总览', icon: Compass },
-  { key: 'methods', label: '方法结构', icon: Binary },
-  { key: 'results', label: '结果对比', icon: BarChart3 },
-  { key: 'maps', label: '分类效果', icon: Map },
-  { key: 'demo', label: '样例推理', icon: MonitorPlay },
+  {
+    key: 'overview',
+    label: '项目总览',
+    icon: Compass,
+    summary: '聚合展示研究目标、关键指标、核心模块与论文图表入口。',
+  },
+  {
+    key: 'methods',
+    label: '方法结构',
+    icon: Binary,
+    summary: '按模块拆解方法结构、插入位置与工程流程，适合答辩讲解。',
+  },
+  {
+    key: 'results',
+    label: '结果对比',
+    icon: BarChart3,
+    summary: '切换核心评价指标，快速比较各方法分支的综合表现。',
+  },
+  {
+    key: 'maps',
+    label: '分类效果',
+    icon: Map,
+    summary: '对比预测图、局部改进 ROI 与配套图表，观察空间分布差异。',
+  },
+  {
+    key: 'demo',
+    label: '样例推理',
+    icon: MonitorPlay,
+    summary: '通过 ROI 推理流程展示输入、输出与像素级解释闭环。',
+  },
 ]
 
 export const datasetOptions = [

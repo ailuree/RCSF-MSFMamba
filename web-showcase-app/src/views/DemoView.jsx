@@ -1,4 +1,4 @@
-import { MonitorPlay, MousePointerClick, Sparkles } from 'lucide-react'
+import { MonitorPlay, MousePointerClick, Sparkles, Zap } from 'lucide-react'
 import { inferenceNarrative } from '../config/uiConfig'
 
 function DemoView({ demoData, demoState, onRun, selectedPixel, onSelectPixel }) {
@@ -42,6 +42,27 @@ function DemoView({ demoData, demoState, onRun, selectedPixel, onSelectPixel }) 
 
   return (
     <div className="view-grid demo-grid">
+      <section className="panel panel-hero-strip">
+        <div className="panel-header">
+          <span>Demo Signals</span>
+          <Zap size={16} />
+        </div>
+        <div className="signal-grid">
+          <article className="signal-card">
+            <span>ROI</span>
+            <strong>160 x 160</strong>
+          </article>
+          <article className="signal-card">
+            <span>Status</span>
+            <strong>{isDone ? 'Ready' : isRunning ? 'Running' : 'Idle'}</strong>
+          </article>
+          <article className="signal-card">
+            <span>Interaction</span>
+            <strong>Pixel Explain</strong>
+          </article>
+        </div>
+      </section>
+
       <section className="panel demo-script-panel">
         <div className="panel-header">
           <span>Inference Flow</span>
@@ -49,9 +70,7 @@ function DemoView({ demoData, demoState, onRun, selectedPixel, onSelectPixel }) 
         </div>
         <div className="demo-callout">
           <strong>Houston2013 实际推理 ROI</strong>
-          <p>
-            当前展示的是 Full Model v1 在 <span>160 × 160</span> ROI 上的逐像素密集推理结果，不是静态示意图。
-          </p>
+          <p>160 × 160 ROI 像素级推理。</p>
         </div>
         <div className="demo-step-list">
           {inferenceNarrative.map((item, index) => (
@@ -65,7 +84,15 @@ function DemoView({ demoData, demoState, onRun, selectedPixel, onSelectPixel }) 
           <button type="button" className="primary-button" onClick={onRun} disabled={isRunning}>
             {isRunning ? 'Inferencing...' : isDone ? 'Run Again' : 'Run Inference'}
           </button>
-          <p>建议答辩时先看左侧输入，再点击按钮切出右侧分类图。</p>
+          <p>先看输入，再点推理。</p>
+        </div>
+        <div className="preview-callout">
+          <div className="preview-callout-head">
+            <span>Live Cue</span>
+            <Sparkles size={15} />
+          </div>
+          <strong>{isDone ? 'Prediction visible' : 'Prediction hidden'}</strong>
+          <p>跑完后点击预测图中的一个像素点，右侧就能立刻解释类别与置信度。</p>
         </div>
       </section>
 
@@ -109,7 +136,7 @@ function DemoView({ demoData, demoState, onRun, selectedPixel, onSelectPixel }) 
           <p>
             {activeClass
               ? `位置 (${activeClass.x}, ${activeClass.y}) 的预测类别为 ${activeClass.classInfo.name}，置信度 ${activeClass.confidence.toFixed(2)}。`
-              : '点击预测图上的任意位置，页面会解释该像素被分类成什么地物。'}
+              : '点击预测图查看类别。'}
           </p>
           {activeClass && (
             <div className="pixel-meta-row">

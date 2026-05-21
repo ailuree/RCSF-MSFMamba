@@ -1,4 +1,4 @@
-import { ArrowRightLeft, Map, Radar, ZoomIn } from 'lucide-react'
+import { ArrowRightLeft, Eye, Map, Radar, ZoomIn } from 'lucide-react'
 import { featureGallery, supportingCharts } from '../showcaseData'
 import { mapOptions } from '../config/uiConfig'
 
@@ -24,6 +24,27 @@ function MapsView({
 
   return (
     <div className="view-grid maps-grid">
+      <section className="panel panel-hero-strip">
+        <div className="panel-header">
+          <span>Map Signals</span>
+          <Eye size={16} />
+        </div>
+        <div className="signal-grid">
+          <article className="signal-card">
+            <span>Left View</span>
+            <strong>{leftLabel}</strong>
+          </article>
+          <article className="signal-card">
+            <span>Right View</span>
+            <strong>{rightLabel}</strong>
+          </article>
+          <article className="signal-card">
+            <span>Dataset</span>
+            <strong>{dataset.label}</strong>
+          </article>
+        </div>
+      </section>
+
       <section className="panel compare-panel">
         <div className="panel-header">
           <span>Map Comparator</span>
@@ -70,7 +91,7 @@ function MapsView({
               onOpenMapPreview({
                 title: `${dataset.label} · ${leftLabel}`,
                 src: primaryMapSrc,
-                note: '点击对比图放大查看细节，更适合观察道路边界和局部类别分布。',
+                note: '放大查看局部边界与类别分布。',
               })
             }
           />
@@ -82,7 +103,7 @@ function MapsView({
               onOpenMapPreview({
                 title: `${dataset.label} · ${rightLabel}`,
                 src: secondaryMapSrc,
-                note: '放大预览时可更清楚比较不同方法在局部区域的分类差异。',
+                note: '用于对比不同方法的局部差异。',
               })
             }
           />
@@ -110,6 +131,14 @@ function MapsView({
           <img src={activeFeature.image} alt={activeFeature.title} />
         </div>
         <p className="viewer-note">{activeFeature.description}</p>
+        <div className="preview-callout">
+          <div className="preview-callout-head">
+            <span>Feature Lens</span>
+            <Map size={15} />
+          </div>
+          <strong>{activeFeature.title}</strong>
+          <p>用这张图解释 Full Model v1 到底在什么位置修正了基线的错误。</p>
+        </div>
       </section>
 
       <section className="panel supporting-panel">

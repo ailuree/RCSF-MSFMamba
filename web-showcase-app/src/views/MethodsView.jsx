@@ -1,9 +1,30 @@
-import { Boxes, Layers3, Radar } from 'lucide-react'
+import { Boxes, Layers3, Radar, Sparkles, Waypoints } from 'lucide-react'
 import { moduleCards, pipelineSteps } from '../showcaseData'
 
 function MethodsView({ selectedModule, onSelectModule, selectedModuleInfo }) {
+  const moduleSignals = [
+    { label: 'Module Count', value: '5 nodes' },
+    { label: 'Current Focus', value: selectedModuleInfo.title.replace('Baseline: ', '') },
+    { label: 'Talk Track', value: 'Position -> Impact -> Result' },
+  ]
+
   return (
     <div className="view-grid methods-grid">
+      <section className="panel panel-hero-strip">
+        <div className="panel-header">
+          <span>Method Signals</span>
+          <Sparkles size={16} />
+        </div>
+        <div className="signal-grid">
+          {moduleSignals.map((item) => (
+            <article key={item.label} className="signal-card">
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+            </article>
+          ))}
+        </div>
+      </section>
+
       <section className="panel module-menu-panel">
         <div className="panel-header">
           <span>Method Navigator</span>
@@ -35,7 +56,7 @@ function MethodsView({ selectedModule, onSelectModule, selectedModuleInfo }) {
           <p>{selectedModuleInfo.summary}</p>
           <div className="module-detail-boxes">
             <article>
-              <strong>解决的问题</strong>
+              <strong>作用</strong>
               <p>
                 {selectedModuleInfo.title === 'Reliability Gate' &&
                   '减少融合后不可靠通道对最终分类的干扰，提高输出可信度。'}
@@ -50,9 +71,17 @@ function MethodsView({ selectedModule, onSelectModule, selectedModuleInfo }) {
               </p>
             </article>
             <article>
-              <strong>答辩讲法</strong>
-              <p>先说模块插入位置，再说模块为什么有必要，最后切到结果页证明它是否带来真实增益。</p>
+              <strong>讲解顺序</strong>
+              <p>位置、作用、结果。</p>
             </article>
+          </div>
+          <div className="preview-callout">
+            <div className="preview-callout-head">
+              <span>Current Reading</span>
+              <Waypoints size={15} />
+            </div>
+            <strong>{selectedModuleInfo.location}</strong>
+            <p>这个模块在答辩里更适合和结果页联动讲，不单独停留太久。</p>
           </div>
         </div>
       </section>
@@ -69,11 +98,11 @@ function MethodsView({ selectedModule, onSelectModule, selectedModuleInfo }) {
               <div>
                 <strong>{step}</strong>
                 <p>
-                  {index === 0 && '统一数据准备、划分口径和实验基线。'}
-                  {index === 1 && '不同分支共享训练入口，只在配置上切换。'}
-                  {index === 2 && '正常测试与退化测试走统一评估框架。'}
-                  {index === 3 && '输出预测图、对比图和论文图表素材。'}
-                  {index === 4 && '将结果整理成论文可写、答辩可讲的成品。'}
+                  {index === 0 && '数据与基线。'}
+                  {index === 1 && '训练分支切换。'}
+                  {index === 2 && '统一评估。'}
+                  {index === 3 && '图表与预测图导出。'}
+                  {index === 4 && '论文与答辩整理。'}
                 </p>
               </div>
             </article>
