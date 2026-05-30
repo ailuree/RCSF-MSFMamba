@@ -1,3 +1,11 @@
+---
+title: "3"
+output:
+    word_document:
+        path: G:\temp\A-BiYe\BiShe3\5-MyProject\A-MyCode\docs\learn\SSM-Mamba-basic.docx
+        toc: false
+---
+
 # SSM与Mamba基础学习笔记
 
 这份文档专门用于从基础层面理解：
